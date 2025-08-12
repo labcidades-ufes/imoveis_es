@@ -1,0 +1,32 @@
+# Instalar pacotes (caso ainda não tenha)
+# install.packages(c("tidygeocoder", "leaflet", "dplyr"))
+
+library(tidygeocoder)
+library(leaflet)
+library(dplyr)
+
+# 1. Carregar os dados coletados
+anuncios_olx <- read.csv("D:/Projeto UFES/Scripts_Projeto/Imoveis_olx.csv", stringsAsFactors = FALSE)
+
+# 2. Geocodificar o endereço para latitude e longitude
+# Usando OpenStreetMap (Nominatim) - sem necessidade de chave de API
+# Para muitos registros, pode ser preciso limitar para não estourar o limite de requisições
+anuncios_geo <- anuncios_olx %>%
+  geocode(address = endereco, method = "osm", lat = latitude, long = longitude)
+
+# 3. Criar o mapa interativo
+leaflet(anuncios_geo) %>%
+  addTiles() %>%  # camada base do OpenStreetMap
+  addCircleMarkers(
+    lng = ~longitude,
+    lat = ~latitude,
+    popup = ~paste0(
+      "<b>", titulo, "</b><br>",
+      preco, "<br>",
+      endereco, "<br>",
+      "<a href='", url, "' target='_blank'>Ver anúncio</a>"
+    ),
+    radius = 5,
+    color = "blue",
+    fillOpacity = 0.7
+  )
