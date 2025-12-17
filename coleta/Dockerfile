@@ -12,12 +12,11 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 
-
 # Instala pacote R necessário para manipulação de arquivos no formato "zstd"
 RUN ARROW_WITH_ZSTD=ON ARROW_WITH_LZ4=ON \
     R -e "install.packages('arrow', type='source', repos='https://cloud.r-project.org/')"
 
-# Instala pacotes R necessários incluindo DuckDB
+# Instala pacotes R necessários
 RUN R -e "install.packages(c('httr', 'jsonlite', 'rvest', 'purrr', 'stringr', 'dplyr', 'tibble', 'glue', 'sf','geocodebr','geobr'), repos='https://cloud.r-project.org/')"
 
 # Cria diretório de trabalho

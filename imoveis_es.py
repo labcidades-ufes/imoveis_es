@@ -14,7 +14,6 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.providers.docker.operators.docker import DockerOperator
 import os
-import socket
 
 # Configurações padrão do DAG
 default_args = {
@@ -27,29 +26,15 @@ default_args = {
     'retry_delay': timedelta(minutes=1),
 }
 
-# Configurações do MinIO (variáveis de ambiente do .env)
-MINIO_ENDPOINT = os.getenv('MINIO_ENDPOINT', 'minio:9000')
-MINIO_ACCESS_KEY = os.getenv('MINIO_ACCESS_KEY', 'minioadmin')
-MINIO_SECRET_KEY = os.getenv('MINIO_SECRET_KEY', 'minioadmin')
-MINIO_BUCKET = os.getenv('MINIO_BUCKET', 'airflow')
-
 # Rede Docker (variável de ambiente do .env)
 docker_network = os.getenv('DOCKER_NETWORK')
-
-# Ambiente compartilhado entre containers
-docker_env = {
-    'MINIO_ENDPOINT': MINIO_ENDPOINT,
-    'MINIO_ACCESS_KEY': MINIO_ACCESS_KEY,
-    'MINIO_SECRET_KEY': MINIO_SECRET_KEY,
-    'MINIO_BUCKET': MINIO_BUCKET,
-}
 
 # Define o DAG
 with DAG(
     'pipeline_imoveis_es',
     default_args=default_args,
     description='Pipeline de dados em R: Coleta -> Processamento -> Visualização',
-    schedule=None,  # Execução manual
+    schedule='@daily',  # Execução diária
     catchup=False,
     tags=['olx', 'r', 'pipeline', 'minio', 'imoveis_es'],
 ) as dag:
@@ -62,7 +47,6 @@ with DAG(
         auto_remove='success', #True dependendo da versão do airflow
         docker_url='unix://var/run/docker.sock',
         network_mode=docker_network,
-        environment=docker_env,
         mount_tmp_dir=False,
     )
     # Task 2: Pré-processamento de dados
@@ -73,7 +57,6 @@ with DAG(
         auto_remove='success',
         docker_url='unix://var/run/docker.sock',
         network_mode=docker_network,
-        environment=docker_env,
         mount_tmp_dir=False,
     )
 
@@ -85,7 +68,6 @@ with DAG(
         auto_remove='success',
         docker_url='unix://var/run/docker.sock',
         network_mode=docker_network,
-        environment=docker_env,
         mount_tmp_dir=False,
     )
 

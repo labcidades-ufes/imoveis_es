@@ -9,8 +9,8 @@ RUN apt-get update && \
         r-cran-sf && \
     rm -rf /var/lib/apt/lists/*
 
-# Instala pacotes R necessários incluindo DuckDB
-RUN R -e "install.packages(c('jsonlite', 'dplyr', 'tidyr','tidyverse','sf','geobr','readr','duckdb'), repos='https://cloud.r-project.org/')"
+# Instala pacotes R necessários
+RUN R -e "install.packages(c('jsonlite', 'dplyr', 'tidyr','tidyverse','sf','geobr','readr'), repos='https://cloud.r-project.org/')"
 
 # Cria diretório de trabalho
 WORKDIR /app
