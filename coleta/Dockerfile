@@ -17,7 +17,10 @@ RUN ARROW_WITH_ZSTD=ON ARROW_WITH_LZ4=ON \
     R -e "install.packages('arrow', type='source', repos='https://cloud.r-project.org/')"
 
 # Instala pacotes R necessários
-RUN R -e "install.packages(c('httr', 'jsonlite', 'rvest', 'purrr', 'stringr', 'dplyr', 'tibble', 'glue', 'sf','geocodebr','geobr'), repos='https://cloud.r-project.org/')"
+RUN R -e "install.packages(c('httr', 'jsonlite', 'rvest', 'purrr', 'stringr', 'dplyr', 'tibble', 'glue', 'sf', 'geobr', 'remotes'), repos='https://cloud.r-project.org/')"
+
+# geocodebr está disponível apenas no GitHub
+RUN R -e "remotes::install_github('ipeaGIT/geocodebr', upgrade = 'never')"
 
 # Cria diretório de trabalho
 WORKDIR /app
@@ -32,5 +35,4 @@ COPY dags/imoveis_es/coleta/olx_brutos_geoloc.R .
 COPY dags/imoveis_es/coleta/entrypoint.R .
 
 # Executa o script
-#CMD ["Rscript", "entrypoint.R"]
-CMD ["Rscript", "olx_brutos_geoloc.R"]
+CMD ["Rscript", "entrypoint.R"]
