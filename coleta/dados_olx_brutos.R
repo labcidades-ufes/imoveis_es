@@ -17,13 +17,6 @@ library(sf)
 # Carrega funções utilitárias
 source("utils.R")
 
-# Configurações do MinIO
-MINIO_ENDPOINT <- Sys.getenv("MINIO_ENDPOINT", "minio:9000")
-MINIO_ACCESS_KEY <- Sys.getenv("MINIO_ACCESS_KEY", "minioadmin")
-MINIO_SECRET_KEY <- Sys.getenv("MINIO_SECRET_KEY", "minioadmin")
-BUCKET_NAME <- Sys.getenv("BUCKET_NAME", "airflow")
-
-
 cat("============================================================\n")
 cat("ETAPA 1: COLETA DE DADOS\n")
 cat("============================================================\n")
