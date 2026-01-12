@@ -22,7 +22,14 @@ read_from_minio_duckdb <- function() {
   cat("[COLETA] Lendo dados do MinIO via DuckDB\n")
 
   tryCatch({
-    arquivos <- list_parquet_files_in_minio("bronze/imoveis_es/municipal/")
+    prefixo <- "bronze/imoveis_es/municipal/"
+    bucket <- Sys.getenv("MINIO_BUCKET", "airflow")
+
+    if (!minio_prefix_exists(prefixo, bucket)) {
+      stop(sprintf("Container %s nao encontrado no bucket %s", prefixo, bucket))
+    }
+
+    arquivos <- list_parquet_files_in_minio(prefixo, bucket)
     if (length(arquivos) == 0) stop("Nenhum arquivo encontrado em bronze/imoveis_es/municipal/")
 
     # nomes vêm como "s3://bucket/bronze/.../arquivo.parquet"
