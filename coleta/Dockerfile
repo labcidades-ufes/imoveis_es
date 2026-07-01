@@ -17,7 +17,7 @@ RUN ARROW_WITH_ZSTD=ON ARROW_WITH_LZ4=ON \
     R -e "install.packages('arrow', type='source', repos='https://cloud.r-project.org/')"
 
 # Instala pacotes R necessários
-RUN R -e "install.packages(c('httr', 'jsonlite', 'rvest', 'purrr', 'stringr', 'dplyr', 'tibble', 'glue', 'sf', 'geobr', 'remotes'), repos='https://cloud.r-project.org/')"
+RUN R -e "install.packages(c('httr', 'jsonlite', 'rvest', 'purrr', 'stringr', 'dplyr', 'tibble', 'glue', 'sf', 'geobr', 'remotes','units'), repos='https://cloud.r-project.org/')"
 
 # geocodebr está disponível apenas no GitHub
 RUN R -e "remotes::install_github('ipeaGIT/geocodebr', upgrade = 'never')"
