@@ -15,23 +15,25 @@ from airflow import DAG
 from airflow.providers.docker.operators.docker import DockerOperator
 import os
 
-# Configurações padrão do DAG
+# Configurações padrão
 default_args = {
     'owner': 'airflow',
     'depends_on_past': False,
     'start_date': datetime(2023, 1, 1),
-    'email_on_failure': False,
-    'email_on_retry': False,
-    'retries': 0,
-    'retry_delay': timedelta(minutes=1),
+    'retries': 1,
+    'retry_delay': timedelta(minutes=5),
 }
+
+
 
 # Rede Docker (variável de ambiente do .env)
 docker_network = os.getenv('DOCKER_NETWORK')
 
+
+
 # Define o DAG
 with DAG(
-    'pipeline_imoveis_es',
+    'base_imoveis_es',
     default_args=default_args,
     description='Pipeline de dados em R: Coleta -> Processamento -> Visualização',
     schedule='@daily',  # Execução diária
@@ -41,7 +43,7 @@ with DAG(
 
     # Task 1: Coleta de dados olx
     coleta_task = DockerOperator(
-        task_id='coleta_imoveis_es',
+        task_id='coleta',
         image='imoveis_es-coleta:latest',
         api_version='auto',
         auto_remove='success', #True dependendo da versão do airflow
@@ -49,6 +51,8 @@ with DAG(
         network_mode=docker_network,
         mount_tmp_dir=False,
     )
+
+
     # # Task 2: Pré-processamento de dados
     # pre_processamento_task = DockerOperator(
     #     task_id='pre_processamento_imoveis_es',
@@ -74,3 +78,8 @@ with DAG(
 
     # Define a ordem de execução
     coleta_task #>> pre_processamento_task >> processamento_task
+
+
+
+
+
