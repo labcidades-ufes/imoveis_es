@@ -291,10 +291,10 @@ collect_raw_data <- function() {
     # COLETA DE DADOS DOS LINKS OLX 
     #-------------------------------------------------------------------------------------------------------------------------------------------
     # Dados de coletas anteriores
-    anuncios_olx_anteriores <- read_latest_parquet_from_minio("airflow/bronze/imoveis_es/municipal/") 
+    anuncios_olx_anteriores <- read_latest_parquet_from_minio("bronze/imoveis_es/municipal/") 
     if(anuncios_olx_anteriores %>% nrow() ==0){
         anuncios_olx_filtrados <- anuncios_olx_anteriores %>%
-        filter(!(is.na(['preco_R$']) & is.na(area_m2) & is.na(n_quartos) & is.na(n_banheiros) & is.na(n_vagas_garagem) & is.na(endereco) & is.na(cep) ))
+        filter(!(is.null(['preco_R$']) & is.null(area_m2) & is.null(n_quartos) & is.null(n_banheiros) & is.null(n_vagas_garagem) & is.null(endereco) & is.null(cep) ))
     
     }else { anuncios_olx_filtrados <- anuncios_olx_anteriores}
    
