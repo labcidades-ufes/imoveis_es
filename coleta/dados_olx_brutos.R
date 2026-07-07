@@ -292,10 +292,12 @@ collect_raw_data <- function() {
     #-------------------------------------------------------------------------------------------------------------------------------------------
     # Dados de coletas anteriores
     anuncios_olx_anteriores <- read_latest_parquet_from_minio("airflow/bronze/imoveis_es/municipal/") 
+    if(anuncios_olx_anteriores %>% nrow() ==0){
+        anuncios_olx_filtrados <- anuncios_olx_anteriores %>%
+        filter(!(is.na(['preco_R$']) & is.na(area_m2) & is.na(n_quartos) & is.na(n_banheiros) & is.na(n_vagas_garagem) & is.na(endereco) & is.na(cep) ))
     
-    anuncios_olx_filtrados <- anuncios_olx_anteriores %>%
-      filter(!(is.na('preco_R$') & is.na(area_m2) & is.na(n_quartos) & is.na(n_banheiros) & is.na(n_vagas_garagem) & is.na(endereco) & is.na(cep) ))
-    
+    }else { anuncios_olx_filtrados <- anuncios_olx_anteriores}
+   
     anuncios_pendentes <- anuncios_olx %>% anti_join(anuncios_olx_filtrados, by = "url")
     
     anuncios_olx <- anuncios_pendentes
@@ -377,7 +379,9 @@ collect_raw_data <- function() {
       cat("[COLETA] Nenhum novo anúncio coletado. Nada será salvo.\n")
       return(NULL)
     }
-    return(anuncios_olx_final)
+    else{
+        return(anuncios_olx_final)
+    }
     
   }, error = function(e) {
     cat("[IMOVEIS_ES] Erro na coleta:", conditionMessage(e), "\n")
