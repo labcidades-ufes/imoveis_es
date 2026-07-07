@@ -1,4 +1,3 @@
-#!/usr/bin/env Rscript
 
 # Script de coleta de dados de anúncios imobiliários a venda do OLX Espírito Santo
 # Coleta dados e salva no MinIO (S3)
@@ -22,10 +21,10 @@ cat("============================================================\n")
 cat("ETAPA 1: COLETA DE DADOS\n")
 cat("============================================================\n")
 
-
 #-------------------------------------------------------------------------------------------------------------------------------------------
 # FUNÇÕES UTILIZADAS
 #-------------------------------------------------------------------------------------------------------------------------------------------
+
 
 acessar_pagina_ler_html <- function(url_pagina){
   res <- httr::GET(
@@ -61,19 +60,19 @@ numero_paginas <- function(document) {
 
 
 # gerar_intervalos <- function() {
-  
+
 #   # Fase 1: 0 até 2.000.000, de 50.000 em 50.000
 #   fase1_inicio <- seq(0,       2000000 - 50000,  by = 50000)
 #   fase1_fim    <- fase1_inicio + 49999
-  
+
 #   # Fase 2: 2.000.000 até 10.000.000, de 100.000 em 100.000
 #   fase2_inicio <- seq(2000000, 10000000 - 100000, by = 100000)
 #   fase2_fim    <- fase2_inicio + 99999
-  
+
 #   # Fase 3: 10.000.000 até 1.000.000.000 (par único)
 #   fase3_inicio <- 10000000
 #   fase3_fim    <- 10000000000
-  
+
 #   # Combina tudo
 #   data.frame(
 #     valor_inicio = c(fase1_inicio, fase2_inicio, fase3_inicio),
@@ -291,10 +290,15 @@ collect_raw_data <- function() {
     #-------------------------------------------------------------------------------------------------------------------------------------------
     # COLETA DE DADOS DOS LINKS OLX 
     #-------------------------------------------------------------------------------------------------------------------------------------------
+    # Dados de coletas anteriores
+    anuncios_olx_anteriores <- read_latest_parquet_from_minio("airflow/bronze/imoveis_es/municipal/") 
     
+    anuncios_olx_filtrados <- anuncios_olx_anteriores %>%
+      filter(!(is.na('preco_R$') & is.na(area_m2) & is.na(n_quartos) & is.na(n_banheiros) & is.na(n_vagas_garagem) & is.na(endereco) & is.na(cep) ))
     
+    anuncios_pendentes <- anuncios_olx %>% anti_join(anuncios_olx_filtrados, by = "url")
     
-    
+    anuncios_olx <- anuncios_pendentes
     # Inicializa vetor de falhas
     urls_falhas <- character(0)
     
@@ -366,7 +370,14 @@ collect_raw_data <- function() {
       cat("Reprocessado:", j, "/", length(idx_na_preco), "(linha", i, ")\n")
     }
     
-    return(anuncios_olx)
+    anuncios_olx_final <- bind_rows(anuncios_olx_filtrados, anuncios_olx)
+    
+    # Se não houver novos anúncios, retorna NULL
+    if (nrow(anuncios_olx) == 0) {
+      cat("[COLETA] Nenhum novo anúncio coletado. Nada será salvo.\n")
+      return(NULL)
+    }
+    return(anuncios_olx_final)
     
   }, error = function(e) {
     cat("[IMOVEIS_ES] Erro na coleta:", conditionMessage(e), "\n")
@@ -402,13 +413,21 @@ tryCatch({
   # Coleta os dados
   data <- collect_raw_data()
   
-  # Salva no MinIO via DuckDB
-  filepath <- save_to_minio_duckdb(data)
+  # Só salva se não for NULL
+  if (!is.null(data)) {
+    # Salva no MinIO via DuckDB
+    filepath <- save_to_minio_duckdb(data)
+    
+    cat("============================================================\n")
+    cat("[COLETA] Coleta finalizada com sucesso!\n")
+    cat("[COLETA] Arquivo:", filepath, "\n")
+    cat("============================================================\n")
+  } else {
+    cat("============================================================\n")
+    cat("[COLETA] Nenhum dado novo. \n")
+    cat("============================================================\n")
+  }
   
-  cat("============================================================\n")
-  cat("[COLETA] Coleta finalizada com sucesso!\n")
-  cat("[COLETA] Arquivo:", filepath, "\n")
-  cat("============================================================\n")
   
 }, error = function(e) {
   cat("[COLETA] Erro fatal:", conditionMessage(e), "\n")
