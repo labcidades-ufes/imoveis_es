@@ -263,25 +263,218 @@ save_to_minio_duckdb <- function(data) {
   })
 }
 
+geoloc_nao_coletadas <- function(dados_municipais,dados_hexagonais){
+
+# Seleção apenas de dados mais atuais
+arquivos_anteriores <- read_latest_parquet_from_minio("bronze/imoveis_es/hexagonal/")
+
+# Somente URLs nunca coletadas
+    anuncios_pendentes <- anuncios_olx %>%
+    filter(!is.na(url), nzchar(url)) %>%
+    distinct(url, .keep_all = TRUE) %>%
+    anti_join(
+        anuncios_olx_anteriores %>% distinct(url),
+        by = "url"
+    )
+}
 
 
+# # Execução principal
+# tryCatch({
+# # Lê dados do MinIO
+#   #raw_data <- read_from_minio_duckdb()
+#   raw_data <- read_latest_parquet_from_minio("bronze/imoveis_es/municipal/")
+
+#   # Coleta os dados
+#   data <- coleta_geoloc(raw_data)
+  
+#   # Salva no MinIO via DuckDB
+#   filepath <- save_to_minio_duckdb(data)
+  
+#   cat("============================================================\n")
+#   cat("[COLETA] Coleta finalizada com sucesso!\n")
+#   cat("[COLETA] Arquivo:", filepath, "\n")
+#   cat("============================================================\n")
+  
+# }, error = function(e) {
+#   cat("[COLETA] Erro fatal:", conditionMessage(e), "\n")
+#   quit(status = 1)
+# })
 
 # Execução principal
 tryCatch({
-# Lê dados do MinIO
-  raw_data <- read_from_minio_duckdb()
-  
-  # Coleta os dados
-  data <- coleta_geoloc(raw_data)
-  
-  # Salva no MinIO via DuckDB
+
+  # -------------------------------------------------------------------------
+  # 1. Lê os dados brutos mais recentes
+  # -------------------------------------------------------------------------
+
+  raw_data <- read_latest_parquet_from_minio("bronze/imoveis_es/municipal/") %>%
+    as_tibble() %>%
+    filter(!is.na(url)) %>%
+    distinct(url, .keep_all = TRUE)
+
+  # -------------------------------------------------------------------------
+  # 2. Lê o último arquivo geolocalizado
+  # -------------------------------------------------------------------------
+
+  geoloc_anterior <- tryCatch(
+    read_latest_parquet_from_minio(
+      "bronze/imoveis_es/hexagonal/"
+    ),
+    error = function(e) {
+      cat(
+        "[COLETA] Nenhum arquivo geolocalizado anterior encontrado:",
+        conditionMessage(e),
+        "\n"
+      )
+
+      tibble::tibble()
+    }
+  )
+
+  geoloc_anterior <- as_tibble(geoloc_anterior)
+
+  # -------------------------------------------------------------------------
+  # 3. Identifica URLs novas
+  # -------------------------------------------------------------------------
+
+  if (
+    nrow(geoloc_anterior) == 0 ||
+    !"url" %in% names(geoloc_anterior)
+  ) {
+    # Primeira execução: todos os registros são novos
+    anuncios_novos <- raw_data
+  } else {
+    anuncios_novos <- raw_data %>%
+      anti_join(
+        geoloc_anterior %>%
+          filter(!is.na(url), nzchar(url)) %>%
+          distinct(url),
+        by = "url"
+      )
+  }
+
+  # -------------------------------------------------------------------------
+  # 4. Identifica URLs antigas com coordenadas ausentes
+  # -------------------------------------------------------------------------
+
+  if (
+    nrow(geoloc_anterior) > 0 &&
+    all(c("url", "latitude", "longitude") %in% names(geoloc_anterior))
+  ) {
+    urls_reprocessar <- geoloc_anterior %>%
+      filter(
+        !is.na(url),
+        nzchar(url),
+        is.na(latitude) | is.na(longitude)
+      ) %>%
+      distinct(url) %>%
+      select(url)
+
+    # Usa os dados brutos mais recentes dessas URLs
+    anuncios_reprocessar <- raw_data %>%
+      semi_join(urls_reprocessar, by = "url")
+  } else {
+    anuncios_reprocessar <- raw_data[0, ]
+  }
+
+  # -------------------------------------------------------------------------
+  # 5. Junta URLs novas e URLs antigas sem coordenadas
+  # -------------------------------------------------------------------------
+
+  anuncios_pendentes <- bind_rows(
+    anuncios_novos,
+    anuncios_reprocessar
+  ) %>%
+    distinct(url, .keep_all = TRUE)
+
+  cat(
+    "[COLETA] URLs novas:",
+    nrow(anuncios_novos),
+    "\n"
+  )
+
+  cat(
+    "[COLETA] URLs antigas para reprocessar:",
+    nrow(anuncios_reprocessar),
+    "\n"
+  )
+
+  # -------------------------------------------------------------------------
+  # 6. Geolocaliza somente os registros pendentes
+  # -------------------------------------------------------------------------
+
+  if (nrow(anuncios_pendentes) > 0) {
+    novos_geolocalizados <- coleta_geoloc(anuncios_pendentes)
+  } else {
+    cat("[COLETA] Nenhuma URL pendente de geolocalização.\n")
+
+    novos_geolocalizados <- tibble::tibble(
+      url = character(),
+      latitude = numeric(),
+      longitude = numeric()
+    )
+  }
+
+  # -------------------------------------------------------------------------
+  # 7. Recupera as coordenadas anteriores
+  # -------------------------------------------------------------------------
+
+  if (
+    nrow(geoloc_anterior) > 0 &&
+    all(c("url", "latitude", "longitude") %in% names(geoloc_anterior))
+  ) {
+    coordenadas_anteriores <- geoloc_anterior %>%
+      filter(!is.na(url), nzchar(url)) %>%
+      select(url, latitude, longitude) %>%
+      distinct(url, .keep_all = TRUE)
+  } else {
+    coordenadas_anteriores <- tibble::tibble(
+      url = character(),
+      latitude = numeric(),
+      longitude = numeric()
+    )
+  }
+
+  # -------------------------------------------------------------------------
+  # 8. Separa as coordenadas novas ou reprocessadas
+  # -------------------------------------------------------------------------
+
+  coordenadas_atualizadas <- novos_geolocalizados %>%
+    select(url, latitude, longitude) %>%
+    distinct(url, .keep_all = TRUE)
+
+  # As coordenadas atualizadas devem vir primeiro.
+  # Assim, distinct() mantém o resultado mais recente da URL.
+  coordenadas_finais <- bind_rows(
+    coordenadas_atualizadas,
+    coordenadas_anteriores
+  ) %>%
+    distinct(url, .keep_all = TRUE)
+
+  # -------------------------------------------------------------------------
+  # 9. Junta as coordenadas aos dados brutos mais recentes
+  # -------------------------------------------------------------------------
+
+  data <- raw_data %>%
+    select(-any_of(c("latitude", "longitude"))) %>%
+    left_join(
+      coordenadas_finais,
+      by = "url"
+    )
+
+  # -------------------------------------------------------------------------
+  # 10. Salva o resultado completo
+  # -------------------------------------------------------------------------
+
   filepath <- save_to_minio_duckdb(data)
-  
+
   cat("============================================================\n")
   cat("[COLETA] Coleta finalizada com sucesso!\n")
   cat("[COLETA] Arquivo:", filepath, "\n")
+  cat("[COLETA] Total de registros:", nrow(data), "\n")
   cat("============================================================\n")
-  
+
 }, error = function(e) {
   cat("[COLETA] Erro fatal:", conditionMessage(e), "\n")
   quit(status = 1)
