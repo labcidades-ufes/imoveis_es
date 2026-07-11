@@ -292,15 +292,24 @@ collect_raw_data <- function() {
     #-------------------------------------------------------------------------------------------------------------------------------------------
     # Dados de coletas anteriores
     anuncios_olx_anteriores <- read_latest_parquet_from_minio("bronze/imoveis_es/municipal/") 
-    if(anuncios_olx_anteriores %>% nrow() == 0){
-        anuncios_olx_filtrados <- anuncios_olx_anteriores
-    }else { 
-        anuncios_olx_filtrados <- anuncios_olx_anteriores %>%
-        filter(!(is.na(`preco_R$`) & is.na(area_m2) & is.na(n_quartos) & is.na(n_banheiros) & is.na(n_vagas_garagem) & is.na(endereco) & is.na(cep) ))
-    }
+    # if(anuncios_olx_anteriores %>% nrow() == 0){
+    #     anuncios_olx_filtrados <- anuncios_olx_anteriores
+    # }else { 
+    #     anuncios_olx_filtrados <- anuncios_olx_anteriores %>%
+    #     filter(!(is.na(`preco_R$`) & is.na(area_m2) & is.na(n_quartos) & is.na(n_banheiros) & is.na(n_vagas_garagem) & is.na(endereco) & is.na(cep) ))
+    # }
    
-    anuncios_pendentes <- anuncios_olx %>% anti_join(anuncios_olx_filtrados, by = "url")
-    
+
+    # Somente URLs nunca coletadas
+    anuncios_pendentes <- anuncios_olx %>%
+    filter(!is.na(url), nzchar(url)) %>%
+    distinct(url, .keep_all = TRUE) %>%
+    anti_join(
+        anuncios_olx_anteriores %>% distinct(url),
+        by = "url"
+    )
+    #anuncios_pendentes <- anuncios_olx %>% anti_join(anuncios_olx_filtrados, by = "url")
+
     anuncios_olx <- anuncios_pendentes
     # Inicializa vetor de falhas
     urls_falhas <- character(0)
@@ -334,12 +343,21 @@ collect_raw_data <- function() {
       cat("Processado:", i, "/", nrow(anuncios_olx), "\n")
     }
     
-    
+    # Cria um data frame com as valores anteriores e os atuais
+    anuncios_olx_final <- bind_rows(
+        anuncios_olx_anteriores,
+        anuncios_olx
+        ) %>%
+        distinct(url, .keep_all = TRUE)
+
+    # Quantidade de casos em que não foi possível coletar informações antes
+    qtd_na_antes <- sum(is.na(anuncios_olx_final[["preco_R$"]]))
+
     #-------------------------------------------------------------------------------------------------------------------------------------------
     # REFAZ A COLETA DOS ANÚNCIOS QUE FALHARAM
     #-------------------------------------------------------------------------------------------------------------------------------------------
     # Índices das linhas ainda sem preço
-    idx_na_preco <- which(is.na(anuncios_olx[["preco_R$"]]))
+    idx_na_preco <- which(is.na(anuncios_olx_final[["preco_R$"]]))
     
     urls_falhas_retry <- character(0)
     # Loop de reprocessamento
@@ -347,7 +365,8 @@ collect_raw_data <- function() {
       i <- idx_na_preco[j]
       
       # Pega a URL da primeira coluna (ajuste se sua coluna tiver nome, ex.: anuncios_olx[i, "url"])
-      url <- as.character(anuncios_olx[i, "url"])
+      #url <- as.character(anuncios_olx_final[i, "url"])
+      url <- as.character(anuncios_olx_final$url[i])
       
       if (!is.na(url) && nzchar(url)) {
         info <- extrair_detalhes_olx(url)
@@ -355,16 +374,16 @@ collect_raw_data <- function() {
         if (all(is.na(unlist(info)))) {
           urls_falhas_retry <- c(urls_falhas_retry, url)
         } else {
-          anuncios_olx[i, "preco_R$"]           <- info$price
-          anuncios_olx[i, "area_m2"]            <- info$size
-          anuncios_olx[i, "n_quartos"]          <- info$rooms
-          anuncios_olx[i, "n_banheiros"]        <- info$bathrooms
-          anuncios_olx[i, "n_vagas_garagem"]    <- info$garage_spaces
-          anuncios_olx[i, "endereco"]           <- info$address
-          anuncios_olx[i, "bairro"]             <- info$neighbourhood
-          anuncios_olx[i, "municipio"]          <- info$municipality
-          anuncios_olx[i, "cep"]                <- info$zipcode
-          anuncios_olx[i, "UF"]                 <- info$uf
+          anuncios_olx_final[i, "preco_R$"]           <- info$price
+          anuncios_olx_final[i, "area_m2"]            <- info$size
+          anuncios_olx_final[i, "n_quartos"]          <- info$rooms
+          anuncios_olx_final[i, "n_banheiros"]        <- info$bathrooms
+          anuncios_olx_final[i, "n_vagas_garagem"]    <- info$garage_spaces
+          anuncios_olx_final[i, "endereco"]           <- info$address
+          anuncios_olx_final[i, "bairro"]             <- info$neighbourhood
+          anuncios_olx_final[i, "municipio"]          <- info$municipality
+          anuncios_olx_final[i, "cep"]                <- info$zipcode
+          anuncios_olx_final[i, "UF"]                 <- info$uf
         }
       }
       
@@ -373,16 +392,18 @@ collect_raw_data <- function() {
       cat("Reprocessado:", j, "/", length(idx_na_preco), "(linha", i, ")\n")
     }
     
-    anuncios_olx_final <- bind_rows(anuncios_olx_filtrados, anuncios_olx)
-    
-    # Se não houver novos anúncios, retorna NULL
-    if (nrow(anuncios_olx) == 0) {
-      cat("[COLETA] Nenhum novo anúncio coletado. Nada será salvo.\n")
-      return(NULL)
+
+    qtd_na_depois <- sum(is.na(anuncios_olx_final[["preco_R$"]]))
+
+    houve_correcao <- qtd_na_depois < qtd_na_antes
+    tem_novos <- nrow(anuncios_olx) > 0
+
+    if (!tem_novos && !houve_correcao) {
+    cat("[COLETA] Nenhum anúncio novo e nenhuma pendência corrigida.\n")
+    return(NULL)
     }
-    else{
-        return(anuncios_olx_final)
-    }
+
+    return(anuncios_olx_final)
     
   }, error = function(e) {
     cat("[IMOVEIS_ES] Erro na coleta:", conditionMessage(e), "\n")
