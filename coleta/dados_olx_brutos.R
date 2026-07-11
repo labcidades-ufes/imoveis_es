@@ -75,10 +75,16 @@ gerar_intervalos <- function() {
 
   # Combina tudo
   data.frame(
-    valor_inicio = c(fase1_inicio, fase2_inicio, fase3_inicio),
-    valor_fim    = c(fase1_fim,    fase2_fim,    fase3_fim)
-  )
+    valor_inicio = format(c(fase1_inicio, fase2_inicio, fase3_inicio),scientific = FALSE, trim = TRUE),
+    valor_fim    = format(c(fase1_fim,    fase2_fim,    fase3_fim),scientific = FALSE, trim = TRUE)
+    )
+  
 }
+
+
+
+
+
 
 
 extrair_detalhes_olx <- function(url, max_tentativas = 3, tempo_entre_tentativas = c(1, 3)) {
