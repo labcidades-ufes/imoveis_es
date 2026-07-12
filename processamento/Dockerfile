@@ -1,7 +1,18 @@
 FROM utils-r_duckdb:latest
 
 # Instala pacotes R necessários incluindo DuckDB
-RUN R -e "install.packages(c('jsonlite', 'dplyr', 'tidyr','readr'), repos='https://cloud.r-project.org/')"
+# RUN R -e "install.packages(c('jsonlite', 'dplyr', 'tidyr','readr'), repos='https://cloud.r-project.org/')"
+
+
+RUN Rscript -e "\
+  pacotes <- c('jsonlite', 'dplyr', 'tidyr', 'readr'); \
+  install.packages(pacotes, repos = 'https://cloud.r-project.org/'); \
+  ausentes <- pacotes[!vapply(pacotes, requireNamespace, logical(1), quietly = TRUE)]; \
+  if (length(ausentes) > 0) \
+    stop('Pacotes não instalados: ', paste(ausentes, collapse = ', '))"
+
+RUN Rscript -e "library(dplyr); library(tidyr); library(readr)"
+
 
 # Cria diretório de trabalho
 WORKDIR /app
