@@ -1,13 +1,25 @@
 FROM utils-r_duckdb:latest
 
 # Instala dependências do sistema necessárias para utilizar a biblioteca sf
+# RUN apt-get update && \
+#     apt-get install -y --no-install-recommends \
+#         libgdal-dev libgeos-dev libproj-dev libudunits2-dev \
+#         build-essential gfortran gdal-bin libgeotiff-dev \
+#         libprotobuf-dev protobuf-compiler libjq-dev \
+#         r-cran-sf && \
+#     rm -rf /var/lib/apt/lists/*
+
+
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libgdal-dev libgeos-dev libproj-dev libudunits2-dev \
         build-essential gfortran gdal-bin libgeotiff-dev \
-        libprotobuf-dev protobuf-compiler libjq-dev \
-        r-cran-sf && \
+        libprotobuf-dev protobuf-compiler libjq-dev r-cran-sf \
+        libzstd-dev liblz4-dev zlib1g-dev libcurl4-openssl-dev \
+        libssl-dev libxml2-dev libuv1-dev cmake ninja-build \
+        rustc cargo && \
     rm -rf /var/lib/apt/lists/*
+
 
 # Instala pacotes R necessários
 RUN R -e "install.packages(c('jsonlite', 'dplyr', 'tidyr','tidyverse','sf','geobr','readr'), repos='https://cloud.r-project.org/')"
