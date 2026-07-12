@@ -53,31 +53,31 @@ with DAG(
     )
 
 
-    # # Task 2: Pré-processamento de dados
-    # pre_processamento_task = DockerOperator(
-    #     task_id='pre_processamento_imoveis_es',
-    #     image='imoveis_es-pre_processamento:latest',
-    #     api_version='auto',
-    #     auto_remove='success',
-    #     docker_url='unix://var/run/docker.sock',
-    #     network_mode=docker_network,
-    #     mount_tmp_dir=False,
-    # )
+    # Task 2: Pré-processamento de dados
+    pre_processamento_task = DockerOperator(
+        task_id='pre_processamento_imoveis_es',
+        image='imoveis_es-pre_processamento:latest',
+        api_version='auto',
+        auto_remove='success',
+        docker_url='unix://var/run/docker.sock',
+        network_mode=docker_network,
+        mount_tmp_dir=False,
+    )
 
-    # # Task 3: Processamento de dados
-    # processamento_task = DockerOperator(
-    #     task_id='processamento_imoveis_es',
-    #     image='imoveis_es-processamento:latest',
-    #     api_version='auto',
-    #     auto_remove='success',
-    #     docker_url='unix://var/run/docker.sock',
-    #     network_mode=docker_network,
-    #     mount_tmp_dir=False,
-    # )
+    # Task 3: Processamento de dados
+    processamento_task = DockerOperator(
+        task_id='processamento_imoveis_es',
+        image='imoveis_es-processamento:latest',
+        api_version='auto',
+        auto_remove='success',
+        docker_url='unix://var/run/docker.sock',
+        network_mode=docker_network,
+        mount_tmp_dir=False,
+    )
 
 
     # Define a ordem de execução
-    coleta_task #>> pre_processamento_task >> processamento_task
+    coleta_task >> pre_processamento_task >> processamento_task
 
 
 
