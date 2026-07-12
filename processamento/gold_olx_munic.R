@@ -21,15 +21,17 @@ read_from_minio_duckdb <- function() {
   cat("[PROCESSAMENTO] Lendo dados do MinIO via DuckDB\n")
 
   tryCatch({
-    arquivos <- list_parquet_files_in_minio("silver/imoveis_es/municipal/")
-    if (length(arquivos) == 0) stop("Nenhum arquivo encontrado em silver/imoveis_es/municipal/")
+    # arquivos <- list_parquet_files_in_minio("silver/imoveis_es/municipal/")
+    # if (length(arquivos) == 0) stop("Nenhum arquivo encontrado em silver/imoveis_es/municipal/")
 
-    # nomes vêm como "s3://bucket/silver/.../arquivo.parquet"
-    ultimo <- sort(arquivos, decreasing = TRUE)[1]
-    # remove o prefixo "s3://bucket/"
-    caminho_rel <- sub(sprintf("^s3://%s/", Sys.getenv("MINIO_BUCKET", "airflow")), "", ultimo)
+    # # nomes vêm como "s3://bucket/silver/.../arquivo.parquet"
+    # ultimo <- sort(arquivos, decreasing = TRUE)[1]
+    # # remove o prefixo "s3://bucket/"
+    # caminho_rel <- sub(sprintf("^s3://%s/", Sys.getenv("MINIO_BUCKET", "airflow")), "", ultimo)
 
-    data <- read_parquet_from_minio(caminho_rel)
+    # data <- read_parquet_from_minio(caminho_rel)
+
+    data <- read_latest_parquet_from_minio("silver/imoveis_es/municipal/")
     cat("[PROCESSAMENTO] Dados lidos com sucesso:", nrow(data), "registros\n")
     data
   }, error = function(e) {
