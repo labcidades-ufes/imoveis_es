@@ -263,44 +263,6 @@ save_to_minio_duckdb <- function(data) {
   })
 }
 
-geoloc_nao_coletadas <- function(dados_municipais,dados_hexagonais){
-
-# Seleção apenas de dados mais atuais
-arquivos_anteriores <- read_latest_parquet_from_minio("bronze/imoveis_es/hexagonal/")
-
-# Somente URLs nunca coletadas
-    anuncios_pendentes <- anuncios_olx %>%
-    filter(!is.na(url), nzchar(url)) %>%
-    distinct(url, .keep_all = TRUE) %>%
-    anti_join(
-        anuncios_olx_anteriores %>% distinct(url),
-        by = "url"
-    )
-}
-
-
-# # Execução principal
-# tryCatch({
-# # Lê dados do MinIO
-#   #raw_data <- read_from_minio_duckdb()
-#   raw_data <- read_latest_parquet_from_minio("bronze/imoveis_es/municipal/")
-
-#   # Coleta os dados
-#   data <- coleta_geoloc(raw_data)
-  
-#   # Salva no MinIO via DuckDB
-#   filepath <- save_to_minio_duckdb(data)
-  
-#   cat("============================================================\n")
-#   cat("[COLETA] Coleta finalizada com sucesso!\n")
-#   cat("[COLETA] Arquivo:", filepath, "\n")
-#   cat("============================================================\n")
-  
-# }, error = function(e) {
-#   cat("[COLETA] Erro fatal:", conditionMessage(e), "\n")
-#   quit(status = 1)
-# })
-
 # Execução principal
 tryCatch({
 
